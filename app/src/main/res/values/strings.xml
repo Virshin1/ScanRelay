@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScanRelay</string>
+    <string name="channel_service_name">ScanRelay Background Service</string>
+    <string name="channel_service_description">Keeps ScanRelay connected to listen for scanned payments</string>
+    <string name="channel_payment_name">Payment Requests</string>
+    <string name="channel_payment_description">High priority alerts for incoming UPI payment requests</string>
+</resources>
