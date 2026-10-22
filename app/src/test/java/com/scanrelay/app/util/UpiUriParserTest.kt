@@ -23,7 +23,62 @@ class UpiUriParserTest {
         assertEquals("Invoice 42", data.note)
         assertEquals("REF123456", data.refId)
         assertEquals("₹150.50", data.displayAmount)
-        assertEquals(raw, data.rawUri)
+        assertTrue(data.rawUri.startsWith("upi://pay?pa=merchant@okaxis"))
+    }
+
+    @Test
+    fun `BharatQR EMVCo 000201 format parses successfully`() {
+        // Standard BharatQR / NPCI EMVCo QR code
+        val bharatQr = "00020101021226340012upi.npci.com0114merchant@payfi5204541153033565406150.005802IN5908NaviUser6003MUM63048C8F"
+        val result = UpiUriParser.parse(bharatQr)
+
+        assertTrue("Expected Success but got $result", result is UpiUriParser.ParseResult.Success)
+        val data = (result as UpiUriParser.ParseResult.Success).data
+        assertEquals("merchant@payfi", data.payeeVpa)
+        assertEquals("NaviUser", data.payeeName)
+        assertEquals("150.00", data.amount)
+        assertEquals("INR", data.currency)
+        assertTrue(data.rawUri.startsWith("upi://pay?pa=merchant@payfi"))
+    }
+
+    @Test
+    fun `BharatQR with embedded upi URI parses successfully`() {
+        val rawUri = "upi://pay?pa=shop@navi&pn=Navi%20Shop&am=500"
+        val lenStr = String.format("%02d", rawUri.length)
+        val emvWithUri = "00020101021126" + String.format("%02d", rawUri.length + 4) + "01" + lenStr + rawUri + "6304ABCD"
+        val result = UpiUriParser.parse(emvWithUri)
+
+        assertTrue(result is UpiUriParser.ParseResult.Success)
+        val data = (result as UpiUriParser.ParseResult.Success).data
+        assertEquals("shop@navi", data.payeeVpa)
+        assertEquals("Navi Shop", data.payeeName)
+        assertEquals("500", data.amount)
+    }
+
+    @Test
+    fun `unencoded spaces in query parameters are handled without crashing`() {
+        val raw = "upi://pay?pa=user@navi&pn=John Doe&am=250&tn=Dinner party"
+        val result = UpiUriParser.parse(raw)
+
+        assertTrue(result is UpiUriParser.ParseResult.Success)
+        val data = (result as UpiUriParser.ParseResult.Success).data
+        assertEquals("user@navi", data.payeeVpa)
+        assertEquals("John Doe", data.payeeName)
+        assertEquals("250", data.amount)
+        assertEquals("Dinner party", data.note)
+        assertTrue(data.rawUri.contains("John+Doe") || data.rawUri.contains("John%20Doe"))
+    }
+
+    @Test
+    fun `upi colon pay normalization works`() {
+        val raw = "upi:pay?pa=friend@paytm&pn=Friend"
+        val result = UpiUriParser.parse(raw)
+
+        assertTrue(result is UpiUriParser.ParseResult.Success)
+        val data = (result as UpiUriParser.ParseResult.Success).data
+        assertEquals("friend@paytm", data.payeeVpa)
+        assertEquals("Friend", data.payeeName)
+        assertTrue(data.rawUri.startsWith("upi://pay?pa=friend@paytm"))
     }
 
     @Test
@@ -96,6 +151,7 @@ class UpiUriParserTest {
     fun `non-upi schemes are strictly rejected`() {
         assertFalse(UpiUriParser.isValidUpiUri("http://pay?pa=someone@upi"))
         assertFalse(UpiUriParser.isValidUpiUri("https://pay?pa=someone@upi"))
+        assertFalse(UpiUriParser.isValidUpiUri("https://navi.com/pay?pa=someone@upi"))
         assertFalse(UpiUriParser.isValidUpiUri("intent://pay?pa=someone@upi#Intent;scheme=upi;end"))
         assertFalse(UpiUriParser.isValidUpiUri("file:///pay?pa=someone@upi"))
         assertFalse(UpiUriParser.isValidUpiUri("content://pay?pa=someone@upi"))

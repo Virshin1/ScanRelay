@@ -77,12 +77,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         lastScannedRawUri = raw
         lastScannedTimestamp = now
 
-        // Strict allowlist: accept ONLY upi://pay
+        // Parse UPI QR (supports standard upi://pay, BharatQR 000201, and web UPI links)
         val parseResult = UpiUriParser.parse(raw)
         if (parseResult !is UpiUriParser.ParseResult.Success) {
             app.haptics.performErrorHaptic()
+            val snippet = if (raw.length > 25) raw.take(25) + "..." else raw
             viewModelScope.launch {
-                _events.emit(ScannerUiEvent.ShowToast("Not a UPI QR: only upi://pay allowed"))
+                _events.emit(ScannerUiEvent.ShowToast("Unsupported QR code: \"$snippet\""))
             }
             return
         }
