@@ -83,6 +83,12 @@ Want to bypass tapping the notification?
 3. Grant the **"Display over other apps"** permission.
 4. When Phone A scans a QR, Phone B immediately launches your UPI payment screen!
 
+### In-App Self-Updater 🚀
+ScanRelay includes built-in update checking directly from GitHub Releases:
+1. Open **Settings → App Updates**.
+2. Tap **"Check"** to query for new versions.
+3. If a new release is available, tap **"Download & Install"** to automatically download the APK with a progress bar and trigger Android's native in-place installer. No manual redownloading or cable connection required.
+
 ### Local Scan History
 - Phone B maintains a local record of the last 20 scans (timestamp, payee name, UPI ID, amount, status).
 - You can review recent transactions or clear history at any time. History is stored locally on the device and never uploaded.
