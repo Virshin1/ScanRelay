@@ -32,6 +32,7 @@ class NtfyClient(
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS) // Infinite read timeout for long streaming
         .writeTimeout(15, TimeUnit.SECONDS)
+        .pingInterval(30, TimeUnit.SECONDS) // HTTP/2 ping every 30s to prevent silent drops
         .retryOnConnectionFailure(true)
         .build()
 ) {
@@ -133,7 +134,7 @@ class NtfyClient(
         initialSinceId: String? = null,
         onStateChanged: (RelayConnectionState) -> Unit = {}
     ): Flow<NtfyMessage> = flow {
-        var backoffMs = 1000L
+        var backoffMs = 2000L
         val maxBackoffMs = 60000L
         var lastReceivedId = initialSinceId
 
@@ -167,15 +168,18 @@ class NtfyClient(
                     continue
                 }
 
-                // Connected successfully
-                onStateChanged(RelayConnectionState.Connected)
-                backoffMs = 1000L // Reset backoff on successful connection
-
                 val inputStream = response.body?.byteStream()
                 if (inputStream == null) {
                     response.close()
+                    onStateChanged(RelayConnectionState.Error("Empty stream"))
+                    delay(backoffMs)
+                    backoffMs = min(backoffMs * 2, maxBackoffMs)
                     continue
                 }
+
+                // Connected successfully
+                onStateChanged(RelayConnectionState.Connected)
+                backoffMs = 2000L // Reset backoff on successful connection
 
                 reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
                 var line: String?
@@ -186,7 +190,8 @@ class NtfyClient(
 
                     val message = parseNtfyJsonLine(currentLine)
                     if (message != null) {
-                        if (!message.id.isNullOrBlank()) {
+                        // Only track message IDs for actual messages to avoid restarting stream on open event IDs
+                        if (message.event == "message" && !message.id.isNullOrBlank()) {
                             lastReceivedId = message.id
                         }
 

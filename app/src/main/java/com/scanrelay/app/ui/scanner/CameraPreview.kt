@@ -38,6 +38,19 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.ComponentActivity
+
+private fun Context.findActivity(): ComponentActivity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is ComponentActivity) return current
+        current = current.baseContext
+    }
+    return null
+}
+
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun CameraPreview(
@@ -46,14 +59,19 @@ fun CameraPreview(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val activity = remember(context) { context.findActivity() }
+    val lifecycleOwner = activity ?: LocalLifecycleOwner.current
 
     var camera by remember { mutableStateOf<Camera?>(null) }
+    var cameraProviderRef by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val barcodeScanner = remember { BarcodeScanning.getClient() }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(lifecycleOwner) {
         onDispose {
+            try {
+                cameraProviderRef?.unbindAll()
+            } catch (_: Exception) {}
             cameraExecutor.shutdown()
             barcodeScanner.close()
         }
@@ -74,16 +92,27 @@ fun CameraPreview(
                 val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                 cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
+                    cameraProviderRef = cameraProvider
 
                     val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
+
+                    var lastAnalyzedTimestamp = 0L
 
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
                         .also { analysis ->
                             analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                                val currentTime = System.currentTimeMillis()
+                                // Throttle ML Kit processing to ~5 fps (every 200ms) to avoid CPU overheating
+                                if (currentTime - lastAnalyzedTimestamp < 200L) {
+                                    imageProxy.close()
+                                    return@setAnalyzer
+                                }
+                                lastAnalyzedTimestamp = currentTime
+
                                 val mediaImage = imageProxy.image
                                 if (mediaImage != null) {
                                     val image = InputImage.fromMediaImage(

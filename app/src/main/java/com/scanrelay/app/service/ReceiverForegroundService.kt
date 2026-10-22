@@ -193,7 +193,10 @@ class ReceiverForegroundService : Service() {
         }
     }
 
+    private var lastStatusText: String? = null
     private fun updateNotificationStatus(text: String) {
+        if (text == lastStatusText) return
+        lastStatusText = text
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val updated = NotificationHelper.buildServiceNotification(this, text)
         manager.notify(NotificationHelper.SERVICE_NOTIFICATION_ID, updated)

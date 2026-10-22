@@ -111,15 +111,17 @@ fun PairScreen(
                     app.haptics.performSuccessHaptic()
                 }
             }
-            launch {
-                try {
-                    app.ntfyClient.subscribe(relayConfig).collect { message ->
-                        if (message.message == "scanrelay://paired") {
-                            isReceiverPairConfirmed = true
-                            app.haptics.performSuccessHaptic()
+            if (!ReceiverForegroundService.serviceRunning.value) {
+                launch {
+                    try {
+                        app.ntfyClient.subscribe(relayConfig).collect { message ->
+                            if (message.message == "scanrelay://paired") {
+                                isReceiverPairConfirmed = true
+                                app.haptics.performSuccessHaptic()
+                            }
                         }
-                    }
-                } catch (_: Exception) {}
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
