@@ -304,9 +304,17 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val currentVer = remember {
+                        try {
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.1"
+                        } catch (_: Exception) {
+                            "1.0.1"
+                        }
+                    }
+
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "ScanRelay v1.0.0",
+                            text = "ScanRelay v$currentVer",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -327,14 +335,14 @@ fun SettingsScreen(
                             onClick = {
                                 coroutineScope.launch {
                                     isCheckingForUpdates = true
-                                    val result = app.updateManager.checkForUpdate("1.0.0")
+                                    val result = app.updateManager.checkForUpdate(currentVer)
                                     isCheckingForUpdates = false
                                     result.onSuccess { update ->
                                         if (update != null) {
                                             availableUpdate = update
                                             showUpdateDialog = true
                                         } else {
-                                            Toast.makeText(context, "ScanRelay is up to date (v1.0.0)", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "ScanRelay is up to date (v$currentVer)", Toast.LENGTH_SHORT).show()
                                         }
                                     }.onFailure { err ->
                                         Toast.makeText(context, "Update check failed: ${err.localizedMessage}", Toast.LENGTH_LONG).show()

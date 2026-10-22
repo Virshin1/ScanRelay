@@ -44,6 +44,15 @@ fun AboutScreen(
             )
         }
     ) { paddingValues ->
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val versionName = androidx.compose.runtime.remember {
+            try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.1"
+            } catch (_: Exception) {
+                "1.0.1"
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -52,7 +61,7 @@ fun AboutScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = "ScanRelay v1.0.0",
+                text = "ScanRelay v$versionName",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )

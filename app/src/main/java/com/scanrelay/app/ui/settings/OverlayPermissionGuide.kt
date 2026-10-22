@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -220,25 +221,43 @@ fun OverlayPermissionGuide(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     if (!isIgnoringBattery) {
-                        OutlinedButton(
-                            onClick = {
-                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                }
-                                try {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {
+                                        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(fallback)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Exclude from Battery Saver")
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
                                     context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                    context.startActivity(fallback)
-                                }
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Exclude from Battery Saver")
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("App Info Battery Settings (Set to Unrestricted)")
+                            }
                         }
                     } else {
                         Text(
-                            text = "✓ Excluded",
+                            text = "✓ Excluded (Unrestricted)",
                             color = SuccessGreen,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium
