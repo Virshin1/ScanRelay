@@ -20,8 +20,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("scanrelaySigning") {
+            storeFile = file("scanrelay.keystore")
+            storePassword = "scanrelaypassword"
+            keyAlias = "scanrelay"
+            keyPassword = "scanrelaypassword"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("scanrelaySigning")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -30,6 +42,7 @@ android {
             )
         }
         debug {
+            signingConfig = signingConfigs.getByName("scanrelaySigning")
             isMinifyEnabled = false
         }
     }
