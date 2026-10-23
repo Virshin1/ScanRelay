@@ -27,6 +27,7 @@ data class QueuedPayment(
 data class ScannerUiState(
     val isTorchOn: Boolean = false,
     val useUltraWide: Boolean = false,
+    val autoOpen: Boolean = true,
     val isSending: Boolean = false,
     val pendingConfirmation: UpiPaymentData? = null,
     val riskWarnings: List<RiskWarning> = emptyList(),
@@ -38,6 +39,7 @@ sealed class ScannerUiEvent {
     data class ShowToast(val message: String) : ScannerUiEvent()
     data class SendSuccess(val message: String) : ScannerUiEvent()
     data class SendError(val message: String) : ScannerUiEvent()
+    data class AutoOpen(val uri: String) : ScannerUiEvent()
 }
 
 class ScannerViewModel(application: Application) : AndroidViewModel(application) {
@@ -64,6 +66,11 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.value = _uiState.value.copy(useUltraWide = ultraWide)
             }
         }
+        viewModelScope.launch {
+            app.preferences.scannerAutoOpenFlow.collect { autoOpen ->
+                _uiState.value = _uiState.value.copy(autoOpen = autoOpen)
+            }
+        }
     }
 
     fun onTorchToggle(enabled: Boolean) {
@@ -75,6 +82,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             app.preferences.setUseUltraWideCamera(enabled)
             _uiState.value = _uiState.value.copy(useUltraWide = enabled)
             val msg = if (enabled) "Switched to Ultra-Wide (0.5x) camera" else "Switched to Standard (1x) camera"
+            _events.emit(ScannerUiEvent.ShowToast(msg))
+        }
+    }
+
+    fun onToggleAutoOpen(enabled: Boolean) {
+        viewModelScope.launch {
+            app.preferences.setScannerAutoOpen(enabled)
+            _uiState.value = _uiState.value.copy(autoOpen = enabled)
+            val msg = if (enabled) "Auto-open enabled: Scans open directly in UPI app" else "Auto-open disabled: Confirmation required"
             _events.emit(ScannerUiEvent.ShowToast(msg))
         }
     }
@@ -108,10 +124,17 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         val data = parseResult.data
         val warnings = UpiRiskAnalyzer.analyze(data)
 
-        _uiState.value = _uiState.value.copy(
-            pendingConfirmation = data,
-            riskWarnings = warnings
-        )
+        if (_uiState.value.autoOpen) {
+            // Automatically launch the UPI app directly
+            viewModelScope.launch {
+                _events.emit(ScannerUiEvent.AutoOpen(data.rawUri))
+            }
+        } else {
+            _uiState.value = _uiState.value.copy(
+                pendingConfirmation = data,
+                riskWarnings = warnings
+            )
+        }
     }
 
     fun dismissConfirmation() {

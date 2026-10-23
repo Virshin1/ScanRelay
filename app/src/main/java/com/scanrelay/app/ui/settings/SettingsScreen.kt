@@ -69,6 +69,7 @@ fun SettingsScreen(
     val autoOpen by app.preferences.autoOpenFlow.collectAsState(initial = false)
     val startOnBoot by app.preferences.startOnBootFlow.collectAsState(initial = false)
     val useUltraWide by app.preferences.useUltraWideCameraFlow.collectAsState(initial = false)
+    val scannerAutoOpen by app.preferences.scannerAutoOpenFlow.collectAsState(initial = true)
 
     var showModeDialog by remember { mutableStateOf(false) }
     var showEditRelayDialog by remember { mutableStateOf(false) }
@@ -324,6 +325,37 @@ fun SettingsScreen(
                 }
             }
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-Open Payment on Scan",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Automatically opens your default UPI app directly when a QR code is detected without waiting for confirmation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = scannerAutoOpen,
+                        onCheckedChange = { coroutineScope.launch { app.preferences.setScannerAutoOpen(it) } }
+                    )
+                }
+            }
+
             // Section: App Updates
             Text(
                 text = "App Updates",
@@ -346,9 +378,9 @@ fun SettingsScreen(
                 ) {
                     val currentVer = remember {
                         try {
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.4"
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.5"
                         } catch (_: Exception) {
-                            "1.0.4"
+                            "1.0.5"
                         }
                     }
 

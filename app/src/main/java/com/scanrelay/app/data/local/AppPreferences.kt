@@ -32,6 +32,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_SERVICE_ENABLED = booleanPreferencesKey("service_enabled")
         private val KEY_LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         private val KEY_USE_ULTRA_WIDE_CAMERA = booleanPreferencesKey("use_ultra_wide_camera")
+        private val KEY_SCANNER_AUTO_OPEN = booleanPreferencesKey("scanner_auto_open")
 
         /**
          * Generates a cryptographically random, URL-safe topic string of at least 24 characters.
@@ -113,6 +114,18 @@ class AppPreferences(private val context: Context) {
     suspend fun setUseUltraWideCamera(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[KEY_USE_ULTRA_WIDE_CAMERA] = enabled
+        }
+    }
+
+    val scannerAutoOpenFlow: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences -> preferences[KEY_SCANNER_AUTO_OPEN] ?: true }
+
+    suspend fun setScannerAutoOpen(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_SCANNER_AUTO_OPEN] = enabled
         }
     }
 

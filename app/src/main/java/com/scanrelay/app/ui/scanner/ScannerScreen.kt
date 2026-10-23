@@ -96,6 +96,16 @@ fun ScannerScreen(
                 is ScannerUiEvent.ShowToast -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.SendSuccess -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.SendError -> snackbarHostState.showSnackbar(event.message)
+                is ScannerUiEvent.AutoOpen -> {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.uri)).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        snackbarHostState.showSnackbar("No UPI app installed on this device")
+                    }
+                }
             }
         }
     }
@@ -113,9 +123,9 @@ fun ScannerScreen(
                             color = Color.White
                         )
                         Text(
-                            text = if (uiState.relayConfig.isConfigured) "Relay Ready" else "Relay Unpaired",
+                            text = if (uiState.autoOpen) "Auto-Open Active" else if (uiState.relayConfig.isConfigured) "Relay Ready" else "Relay Unpaired",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (uiState.relayConfig.isConfigured) Color(0xFF81C784) else Color(0xFFFFB74D)
+                            color = if (uiState.autoOpen) Color(0xFF81C784) else if (uiState.relayConfig.isConfigured) Color(0xFF81C784) else Color(0xFFFFB74D)
                         )
                     }
                 },
