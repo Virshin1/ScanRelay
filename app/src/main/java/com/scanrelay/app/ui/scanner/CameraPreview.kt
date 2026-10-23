@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.hardware.camera2.CameraCharacteristics
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
+import android.view.ViewConfiguration
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2CameraInfo
@@ -18,15 +20,28 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -43,6 +59,9 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
+import kotlin.math.hypot
 
 private fun Context.findActivity(): ComponentActivity? {
     var current = this
@@ -66,10 +85,34 @@ fun CameraPreview(
     val lifecycleOwner = activity ?: LocalLifecycleOwner.current
 
     var camera by remember { mutableStateOf<Camera?>(null) }
+    val cameraRef = remember { AtomicReference<Camera?>(null) }
     var cameraProviderRef by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     val barcodeScanner = remember { BarcodeScanning.getClient() }
+
+    var currentZoomRatio by remember { mutableFloatStateOf(1.0f) }
+    var minZoomRatio by remember { mutableFloatStateOf(1.0f) }
+    var maxZoomRatio by remember { mutableFloatStateOf(1.0f) }
+
+    DisposableEffect(camera, lifecycleOwner) {
+        val activeCam = camera
+        if (activeCam != null) {
+            val observer = androidx.lifecycle.Observer<androidx.camera.core.ZoomState> { state ->
+                currentZoomRatio = state.zoomRatio
+                minZoomRatio = state.minZoomRatio
+                maxZoomRatio = state.maxZoomRatio
+            }
+            activeCam.cameraInfo.zoomState.observe(lifecycleOwner, observer)
+            onDispose {
+                try {
+                    activeCam.cameraInfo.zoomState.removeObserver(observer)
+                } catch (_: Exception) {}
+            }
+        } else {
+            onDispose {}
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         onDispose {
@@ -78,6 +121,7 @@ fun CameraPreview(
             } catch (_: Exception) {}
             cameraExecutor.shutdown()
             barcodeScanner.close()
+            cameraRef.set(null)
         }
     }
 
@@ -148,6 +192,7 @@ fun CameraPreview(
                 imageAnalysis
             )
             camera = boundCamera
+            cameraRef.set(boundCamera)
 
             if (useUltraWide) {
                 val minZoom = boundCamera.cameraInfo.zoomState.value?.minZoomRatio ?: 1.0f
@@ -175,13 +220,56 @@ fun CameraPreview(
                     cameraProviderRef = cameraProviderFuture.get()
                 }, ContextCompat.getMainExecutor(ctx))
 
-                // Tap to focus
+                val touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop
+                var downX = 0f
+                var downY = 0f
+                var isScaling = false
+
+                val scaleGestureDetector = ScaleGestureDetector(ctx, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                        isScaling = true
+                        return true
+                    }
+
+                    override fun onScale(detector: ScaleGestureDetector): Boolean {
+                        val activeCamera = cameraRef.get() ?: return true
+                        val zoomState = activeCamera.cameraInfo.zoomState.value ?: return true
+                        val currentRatio = zoomState.zoomRatio
+                        val delta = detector.scaleFactor
+                        val targetRatio = (currentRatio * delta).coerceIn(zoomState.minZoomRatio, zoomState.maxZoomRatio)
+                        activeCamera.cameraControl.setZoomRatio(targetRatio)
+                        return true
+                    }
+                })
+
+                // Touch listener handling pinch-to-zoom and tap-to-focus
                 previewView.setOnTouchListener { _, event ->
-                    if (event.action == MotionEvent.ACTION_UP) {
-                        val factory = previewView.meteringPointFactory
-                        val point = factory.createPoint(event.x, event.y)
-                        val action = FocusMeteringAction.Builder(point).build()
-                        camera?.cameraControl?.startFocusAndMetering(action)
+                    scaleGestureDetector.onTouchEvent(event)
+
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            downX = event.x
+                            downY = event.y
+                            isScaling = false
+                        }
+                        MotionEvent.ACTION_POINTER_DOWN -> {
+                            isScaling = true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            if (!isScaling && !scaleGestureDetector.isInProgress) {
+                                val dx = event.x - downX
+                                val dy = event.y - downY
+                                if (hypot(dx.toDouble(), dy.toDouble()) < touchSlop) {
+                                    val activeCamera = cameraRef.get()
+                                    if (activeCamera != null) {
+                                        val factory = previewView.meteringPointFactory
+                                        val point = factory.createPoint(event.x, event.y)
+                                        val action = FocusMeteringAction.Builder(point).build()
+                                        activeCamera.cameraControl.startFocusAndMetering(action)
+                                    }
+                                }
+                            }
+                        }
                     }
                     true
                 }
@@ -192,6 +280,54 @@ fun CameraPreview(
 
         // Clear scanning target frame overlay
         ScanningOverlay()
+
+        // Floating zoom indicator and quick reset/toggle pill
+        if (maxZoomRatio > minZoomRatio) {
+            Surface(
+                onClick = {
+                    val defaultZoom = if (useUltraWide) minZoomRatio else 1.0f
+                    val target = if (abs(currentZoomRatio - defaultZoom) > 0.05f) {
+                        defaultZoom
+                    } else {
+                        (defaultZoom * 2f).coerceAtMost(maxZoomRatio)
+                    }
+                    camera?.cameraControl?.setZoomRatio(target)
+                },
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Black.copy(alpha = 0.65f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 96.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ZoomIn,
+                        contentDescription = "Zoom level",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.1fx", currentZoomRatio),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    val defaultZoom = if (useUltraWide) minZoomRatio else 1.0f
+                    if (abs(currentZoomRatio - defaultZoom) > 0.05f) {
+                        Text(
+                            text = if (useUltraWide) "Reset" else "Reset",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
