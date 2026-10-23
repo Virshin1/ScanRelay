@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -122,6 +123,25 @@ fun ScannerScreen(
                     containerColor = Color.Black.copy(alpha = 0.7f)
                 ),
                 actions = {
+                    // Lens toggle: 0.5x Ultra-Wide vs 1x Standard
+                    IconButton(onClick = { viewModel.onToggleUltraWide(!uiState.useUltraWide) }) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (uiState.useUltraWide) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f),
+                                    shape = CircleShape
+                                )
+                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (uiState.useUltraWide) "0.5x" else "1x",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (uiState.useUltraWide) MaterialTheme.colorScheme.onPrimary else Color.White
+                            )
+                        }
+                    }
                     IconButton(onClick = { viewModel.onTorchToggle(!uiState.isTorchOn) }) {
                         Icon(
                             imageVector = if (uiState.isTorchOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
@@ -155,6 +175,7 @@ fun ScannerScreen(
             if (hasCameraPermission) {
                 CameraPreview(
                     isTorchOn = uiState.isTorchOn,
+                    useUltraWide = uiState.useUltraWide,
                     onBarcodeScanned = { raw ->
                         viewModel.onBarcodeDetected(raw)
                     }
@@ -300,6 +321,18 @@ fun ScannerScreen(
                 ScanConfirmationDialog(
                     paymentData = paymentData,
                     warnings = uiState.riskWarnings,
+                    isRelayConfigured = uiState.relayConfig.isConfigured,
+                    onOpenDirectly = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentData.rawUri)).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                            viewModel.dismissConfirmation()
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "No UPI app found on this device", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     onConfirmSend = { viewModel.sendToMainPhone() },
                     onCancel = { viewModel.dismissConfirmation() }
                 )

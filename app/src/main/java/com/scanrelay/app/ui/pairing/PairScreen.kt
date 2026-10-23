@@ -88,6 +88,7 @@ fun PairScreen(
 
     val currentMode by app.preferences.appModeFlow.collectAsState(initial = AppMode.UNSET)
     val relayConfig by app.preferences.relayConfigFlow.collectAsState(initial = RelayConfig())
+    val useUltraWide by app.preferences.useUltraWideCameraFlow.collectAsState(initial = false)
 
     var selectedScannerTab by remember { mutableIntStateOf(0) } // 0: Scan QR, 1: Manual
     var isReceiverPairConfirmed by remember { mutableStateOf(false) }
@@ -189,6 +190,7 @@ fun PairScreen(
                         Box(modifier = Modifier.fillMaxSize()) {
                             CameraPreview(
                                 isTorchOn = false,
+                                useUltraWide = useUltraWide,
                                 onBarcodeScanned = { raw ->
                                     try {
                                         val json = JSONObject(raw)

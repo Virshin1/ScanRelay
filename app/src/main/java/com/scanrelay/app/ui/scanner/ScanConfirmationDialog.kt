@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -38,6 +39,8 @@ import com.scanrelay.app.util.RiskWarning
 fun ScanConfirmationDialog(
     paymentData: UpiPaymentData,
     warnings: List<RiskWarning>,
+    isRelayConfigured: Boolean,
+    onOpenDirectly: () -> Unit,
     onConfirmSend: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -176,14 +179,29 @@ fun ScanConfirmationDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onConfirmSend,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Send to Main Phone")
+                if (isRelayConfigured) {
+                    OutlinedButton(
+                        onClick = onConfirmSend,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Send")
+                    }
+                }
+                Button(
+                    onClick = onOpenDirectly,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Open UPI App")
+                }
             }
         },
         dismissButton = {

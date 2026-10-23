@@ -31,6 +31,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_START_ON_BOOT = booleanPreferencesKey("start_on_boot")
         private val KEY_SERVICE_ENABLED = booleanPreferencesKey("service_enabled")
         private val KEY_LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
+        private val KEY_USE_ULTRA_WIDE_CAMERA = booleanPreferencesKey("use_ultra_wide_camera")
 
         /**
          * Generates a cryptographically random, URL-safe topic string of at least 24 characters.
@@ -102,6 +103,18 @@ class AppPreferences(private val context: Context) {
             if (exception is IOException) emit(emptyPreferences()) else throw exception
         }
         .map { preferences -> preferences[KEY_LAST_MESSAGE_ID] }
+
+    val useUltraWideCameraFlow: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences -> preferences[KEY_USE_ULTRA_WIDE_CAMERA] ?: false }
+
+    suspend fun setUseUltraWideCamera(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_USE_ULTRA_WIDE_CAMERA] = enabled
+        }
+    }
 
     suspend fun setAppMode(mode: AppMode) {
         dataStore.edit { preferences ->

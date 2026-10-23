@@ -26,6 +26,7 @@ data class QueuedPayment(
 
 data class ScannerUiState(
     val isTorchOn: Boolean = false,
+    val useUltraWide: Boolean = false,
     val isSending: Boolean = false,
     val pendingConfirmation: UpiPaymentData? = null,
     val riskWarnings: List<RiskWarning> = emptyList(),
@@ -58,10 +59,24 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.value = _uiState.value.copy(relayConfig = config)
             }
         }
+        viewModelScope.launch {
+            app.preferences.useUltraWideCameraFlow.collect { ultraWide ->
+                _uiState.value = _uiState.value.copy(useUltraWide = ultraWide)
+            }
+        }
     }
 
     fun onTorchToggle(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(isTorchOn = enabled)
+    }
+
+    fun onToggleUltraWide(enabled: Boolean) {
+        viewModelScope.launch {
+            app.preferences.setUseUltraWideCamera(enabled)
+            _uiState.value = _uiState.value.copy(useUltraWide = enabled)
+            val msg = if (enabled) "Switched to Ultra-Wide (0.5x) camera" else "Switched to Standard (1x) camera"
+            _events.emit(ScannerUiEvent.ShowToast(msg))
+        }
     }
 
     /**

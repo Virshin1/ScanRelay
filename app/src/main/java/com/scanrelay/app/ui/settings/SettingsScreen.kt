@@ -68,6 +68,7 @@ fun SettingsScreen(
     val relayConfig by app.preferences.relayConfigFlow.collectAsState(initial = RelayConfig())
     val autoOpen by app.preferences.autoOpenFlow.collectAsState(initial = false)
     val startOnBoot by app.preferences.startOnBootFlow.collectAsState(initial = false)
+    val useUltraWide by app.preferences.useUltraWideCameraFlow.collectAsState(initial = false)
 
     var showModeDialog by remember { mutableStateOf(false) }
     var showEditRelayDialog by remember { mutableStateOf(false) }
@@ -284,6 +285,45 @@ fun SettingsScreen(
                 }
             }
 
+            // Section: Camera & Scanner
+            Text(
+                text = "Camera & Scanner",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Always Use Ultra-Wide Camera (0.5x)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Bypasses the standard 1x camera and uses the ultra-wide lens at all times. Ideal if your main camera is faulty or broken.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = useUltraWide,
+                        onCheckedChange = { coroutineScope.launch { app.preferences.setUseUltraWideCamera(it) } }
+                    )
+                }
+            }
+
             // Section: App Updates
             Text(
                 text = "App Updates",
@@ -306,9 +346,9 @@ fun SettingsScreen(
                 ) {
                     val currentVer = remember {
                         try {
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.3"
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.4"
                         } catch (_: Exception) {
-                            "1.0.3"
+                            "1.0.4"
                         }
                     }
 
