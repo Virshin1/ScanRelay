@@ -27,6 +27,22 @@ class UpiUriParserTest {
     }
 
     @Test
+    fun `signed merchant QR preserves all parameters including sign mode orgid`() {
+        val raw = "upi://pay?pa=9619564351@kotakbank&pn=RAJ%20NARESH%20KOLI&mc=5499&mode=02&orgid=159001&mid=KOTAK123&sign=MEQCIB1234567890abcdef"
+        val result = UpiUriParser.parse(raw)
+
+        assertTrue(result is UpiUriParser.ParseResult.Success)
+        val data = (result as UpiUriParser.ParseResult.Success).data
+        assertEquals("9619564351@kotakbank", data.payeeVpa)
+        assertEquals("RAJ NARESH KOLI", data.payeeName)
+        // Crucial: verify that sign, mode, orgid are completely preserved in rawUri
+        assertTrue("rawUri must contain sign parameter", data.rawUri.contains("sign=MEQCIB1234567890abcdef"))
+        assertTrue("rawUri must contain mode parameter", data.rawUri.contains("mode=02"))
+        assertTrue("rawUri must contain orgid parameter", data.rawUri.contains("orgid=159001"))
+        assertTrue("rawUri must contain mid parameter", data.rawUri.contains("mid=KOTAK123"))
+    }
+
+    @Test
     fun `BharatQR EMVCo 000201 format parses successfully`() {
         // Standard BharatQR / NPCI EMVCo QR code
         val bharatQr = "00020101021226340012upi.npci.com0114merchant@payfi5204541153033565406150.005802IN5908NaviUser6003MUM63048C8F"

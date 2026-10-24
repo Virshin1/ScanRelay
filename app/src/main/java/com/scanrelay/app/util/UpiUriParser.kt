@@ -69,6 +69,11 @@ object UpiUriParser {
             var tr: String? = null
             var mc: String? = null
 
+            var mid: String? = null
+            var tid: String? = null
+            var sign: String? = null
+            var url: String? = null
+
             for (tag in tags) {
                 when (tag.tag) {
                     in "26".."51" -> {
@@ -77,10 +82,21 @@ object UpiUriParser {
                             if (sub.value.startsWith("upi://pay", ignoreCase = true)) {
                                 return parse(sub.value)
                             }
-                            if (sub.tag == "01") {
-                                pa = sub.value.trim()
-                            } else if (pa == null && sub.value.contains("@")) {
-                                pa = sub.value.trim()
+                            when (sub.tag) {
+                                "01" -> pa = sub.value.trim()
+                                "02" -> {
+                                    val v = sub.value.trim()
+                                    if (v.startsWith("http", ignoreCase = true)) url = v
+                                    else if (v.length > 50) sign = v
+                                    else mid = v
+                                }
+                                "03" -> mid = sub.value.trim()
+                                "04" -> tid = sub.value.trim()
+                                else -> {
+                                    if (pa == null && sub.value.contains("@")) {
+                                        pa = sub.value.trim()
+                                    }
+                                }
                             }
                         }
                     }
@@ -95,11 +111,14 @@ object UpiUriParser {
                         val subTags = parseEmvTlv(tag.value)
                         for (sub in subTags) {
                             when (sub.tag) {
+                                "03" -> if (mid == null) mid = sub.value.trim()
                                 "05" -> tr = sub.value.trim()
+                                "07" -> if (tid == null) tid = sub.value.trim()
                                 "08" -> tn = sub.value.trim()
                             }
                         }
                     }
+                    "64" -> sign = tag.value.trim()
                 }
             }
 
@@ -114,7 +133,11 @@ object UpiUriParser {
                 cu = cu,
                 tn = tn,
                 tr = tr,
-                mc = mc
+                mc = mc,
+                mid = mid,
+                tid = tid,
+                sign = sign,
+                url = url
             )
         } catch (e: Exception) {
             return ParseResult.Invalid("Failed to parse BharatQR: ${e.message}")
@@ -179,14 +202,23 @@ object UpiUriParser {
             return ParseResult.Invalid("Missing required 'pa' (Payee Address) parameter")
         }
 
-        return buildUpiPaymentData(
-            pa = pa,
-            pn = queryParams["pn"]?.trim(),
-            am = queryParams["am"]?.trim(),
-            cu = queryParams["cu"]?.trim() ?: "INR",
-            tn = queryParams["tn"]?.trim(),
-            tr = queryParams["tr"]?.trim(),
-            mc = queryParams["mc"]?.trim()
+        // Fix any unencoded spaces in the raw URI for valid Android Intent parsing
+        val safeRawUri = if (normalized.contains(" ")) {
+            normalized.replace(" ", "%20")
+        } else {
+            normalized
+        }
+
+        return ParseResult.Success(
+            UpiPaymentData(
+                payeeVpa = pa,
+                payeeName = queryParams["pn"]?.trim()?.ifEmpty { null },
+                amount = queryParams["am"]?.trim()?.ifEmpty { null },
+                currency = queryParams["cu"]?.trim() ?: "INR",
+                note = queryParams["tn"]?.trim()?.ifEmpty { null },
+                refId = queryParams["tr"]?.trim()?.ifEmpty { null },
+                rawUri = safeRawUri
+            )
         )
     }
 
@@ -197,25 +229,49 @@ object UpiUriParser {
         cu: String,
         tn: String?,
         tr: String?,
-        mc: String?
+        mc: String?,
+        mode: String? = null,
+        orgid: String? = null,
+        sign: String? = null,
+        mid: String? = null,
+        tid: String? = null,
+        url: String? = null
     ): ParseResult {
         // Construct canonical upi://pay URI with properly encoded parameters
         val qb = StringBuilder("pa=").append(pa)
         if (!pn.isNullOrBlank()) {
-            qb.append("&pn=").append(URLEncoder.encode(pn, StandardCharsets.UTF_8.name()))
+            qb.append("&pn=").append(URLEncoder.encode(pn, StandardCharsets.UTF_8.name()).replace("+", "%20"))
+        }
+        if (!mc.isNullOrBlank()) {
+            qb.append("&mc=").append(mc)
         }
         if (!am.isNullOrBlank()) {
             qb.append("&am=").append(am)
         }
         qb.append("&cu=").append(cu)
         if (!tn.isNullOrBlank()) {
-            qb.append("&tn=").append(URLEncoder.encode(tn, StandardCharsets.UTF_8.name()))
+            qb.append("&tn=").append(URLEncoder.encode(tn, StandardCharsets.UTF_8.name()).replace("+", "%20"))
         }
         if (!tr.isNullOrBlank()) {
             qb.append("&tr=").append(tr)
         }
-        if (!mc.isNullOrBlank()) {
-            qb.append("&mc=").append(mc)
+        if (!mode.isNullOrBlank()) {
+            qb.append("&mode=").append(mode)
+        }
+        if (!orgid.isNullOrBlank()) {
+            qb.append("&orgid=").append(orgid)
+        }
+        if (!sign.isNullOrBlank()) {
+            qb.append("&sign=").append(sign)
+        }
+        if (!mid.isNullOrBlank()) {
+            qb.append("&mid=").append(mid)
+        }
+        if (!tid.isNullOrBlank()) {
+            qb.append("&tid=").append(tid)
+        }
+        if (!url.isNullOrBlank()) {
+            qb.append("&url=").append(url)
         }
 
         val canonicalUri = "upi://pay?$qb"
