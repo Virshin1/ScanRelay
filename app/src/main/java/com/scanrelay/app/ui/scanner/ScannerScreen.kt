@@ -1,6 +1,9 @@
 package com.scanrelay.app.ui.scanner
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -98,10 +101,17 @@ fun ScannerScreen(
                 is ScannerUiEvent.SendError -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.AutoOpen -> {
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.uri)).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        val parsedUri = Uri.parse(event.uri)
+                        val vpa = parsedUri.getQueryParameter("pa")
+                        if (!vpa.isNullOrBlank()) {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            val clip = ClipData.newPlainText("UPI ID", vpa)
+                            clipboard?.setPrimaryClip(clip)
                         }
-                        context.startActivity(intent)
+
+                        val intent = Intent(Intent.ACTION_VIEW, parsedUri)
+                        val chooser = Intent.createChooser(intent, "Pay with")
+                        context.startActivity(chooser)
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("No UPI app installed on this device")
                     }
@@ -334,10 +344,17 @@ fun ScannerScreen(
                     isRelayConfigured = uiState.relayConfig.isConfigured,
                     onOpenDirectly = {
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentData.rawUri)).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            val parsedUri = Uri.parse(paymentData.rawUri)
+                            val vpa = parsedUri.getQueryParameter("pa")
+                            if (!vpa.isNullOrBlank()) {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                val clip = ClipData.newPlainText("UPI ID", vpa)
+                                clipboard?.setPrimaryClip(clip)
                             }
-                            context.startActivity(intent)
+
+                            val intent = Intent(Intent.ACTION_VIEW, parsedUri)
+                            val chooser = Intent.createChooser(intent, "Pay with")
+                            context.startActivity(chooser)
                             viewModel.dismissConfirmation()
                         } catch (e: Exception) {
                             android.widget.Toast.makeText(context, "No UPI app found on this device", android.widget.Toast.LENGTH_SHORT).show()
