@@ -72,6 +72,7 @@ fun SettingsScreen(
     val useUltraWide by app.preferences.useUltraWideCameraFlow.collectAsState(initial = false)
     val scannerAutoOpen by app.preferences.scannerAutoOpenFlow.collectAsState(initial = true)
     val preferredPaymentApp by app.preferences.preferredPaymentAppFlow.collectAsState(initial = null)
+    val openScannerDirectly by app.preferences.openScannerDirectlyFlow.collectAsState(initial = false)
 
     var showModeDialog by remember { mutableStateOf(false) }
     var showEditRelayDialog by remember { mutableStateOf(false) }
@@ -397,6 +398,37 @@ fun SettingsScreen(
                         Icons.Default.ChevronRight,
                         contentDescription = "Select App",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Open App Scanner Page Directly",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Opens super.money straight to its Scan QR camera view with QR saved in gallery and UPI ID copied. Bypasses bank 'technical issue' decline.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = openScannerDirectly,
+                        onCheckedChange = { coroutineScope.launch { app.preferences.setOpenScannerDirectly(it) } }
                     )
                 }
             }

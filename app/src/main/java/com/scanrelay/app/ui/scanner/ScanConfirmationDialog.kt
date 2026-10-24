@@ -208,7 +208,7 @@ fun ScanConfirmationDialog(
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (preferredAppName.isNullOrBlank()) "Open UPI App Directly" else "Open $preferredAppName (Paste ID)")
+                        Text(if (preferredAppName.isNullOrBlank()) "Open UPI App Scanner" else "Open $preferredAppName Scanner")
                     }
                 }
             }

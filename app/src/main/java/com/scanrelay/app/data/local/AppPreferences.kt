@@ -34,6 +34,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_USE_ULTRA_WIDE_CAMERA = booleanPreferencesKey("use_ultra_wide_camera")
         private val KEY_SCANNER_AUTO_OPEN = booleanPreferencesKey("scanner_auto_open")
         private val KEY_PREFERRED_PAYMENT_APP = stringPreferencesKey("preferred_payment_app")
+        private val KEY_OPEN_SCANNER_DIRECTLY = booleanPreferencesKey("open_scanner_directly")
 
         /**
          * Generates a cryptographically random, URL-safe topic string of at least 24 characters.
@@ -136,6 +137,12 @@ class AppPreferences(private val context: Context) {
         }
         .map { preferences -> preferences[KEY_PREFERRED_PAYMENT_APP] }
 
+    val openScannerDirectlyFlow: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences -> preferences[KEY_OPEN_SCANNER_DIRECTLY] ?: false }
+
     suspend fun setPreferredPaymentApp(packageName: String?) {
         dataStore.edit { preferences ->
             if (packageName.isNullOrBlank()) {
@@ -143,6 +150,12 @@ class AppPreferences(private val context: Context) {
             } else {
                 preferences[KEY_PREFERRED_PAYMENT_APP] = packageName
             }
+        }
+    }
+
+    suspend fun setOpenScannerDirectly(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_OPEN_SCANNER_DIRECTLY] = enabled
         }
     }
 

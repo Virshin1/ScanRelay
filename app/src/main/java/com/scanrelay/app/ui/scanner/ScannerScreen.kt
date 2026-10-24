@@ -104,15 +104,22 @@ fun ScannerScreen(
                 is ScannerUiEvent.SendSuccess -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.SendError -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.AutoOpen -> {
+                    val isOpenScannerDirectly = uiState.openScannerDirectly
                     launchUpiIntent(
                         context = context,
                         rawUri = event.uri,
                         preferredPackage = uiState.preferredPaymentApp,
+                        openScannerDirectly = isOpenScannerDirectly,
                         onLaunched = {
                             val vpa = Uri.parse(event.uri).getQueryParameter("pa")
                             val vpaText = if (!vpa.isNullOrBlank()) " ($vpa)" else ""
+                            val snackbarMsg = if (isOpenScannerDirectly) {
+                                "Opening scanner... Tap Gallery icon to pay$vpaText"
+                            } else {
+                                "Opening app... QR saved to Gallery & UPI ID copied$vpaText"
+                            }
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Opening app... QR saved to Gallery & UPI ID copied$vpaText")
+                                snackbarHostState.showSnackbar(snackbarMsg)
                             }
                         },
                         onError = { msg ->
@@ -371,10 +378,8 @@ fun ScannerScreen(
                             val clip = ClipData.newPlainText("UPI ID", paymentData.payeeVpa)
                             clipboard?.setPrimaryClip(clip)
 
-                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
-                            if (launchIntent != null) {
-                                launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                context.startActivity(launchIntent)
+                            val launched = com.scanrelay.app.util.UpiAppLauncher.openAppScanner(context, pkg)
+                            if (launched) {
                                 viewModel.dismissConfirmation()
                             } else {
                                 android.widget.Toast.makeText(context, "App not installed on device", android.widget.Toast.LENGTH_SHORT).show()
@@ -393,6 +398,7 @@ private fun launchUpiIntent(
     context: Context,
     rawUri: String,
     preferredPackage: String?,
+    openScannerDirectly: Boolean = false,
     onLaunched: () -> Unit,
     onError: (String) -> Unit
 ) {
@@ -407,6 +413,15 @@ private fun launchUpiIntent(
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val clip = ClipData.newPlainText("UPI ID", vpa)
             clipboard?.setPrimaryClip(clip)
+        }
+
+        // 3. If direct scanner opening is requested, open scanner directly
+        if (openScannerDirectly && !preferredPackage.isNullOrBlank()) {
+            val launched = com.scanrelay.app.util.UpiAppLauncher.openAppScanner(context, preferredPackage)
+            if (launched) {
+                onLaunched()
+                return
+            }
         }
 
         val intent = Intent(Intent.ACTION_VIEW, parsedUri).apply {

@@ -29,6 +29,7 @@ data class ScannerUiState(
     val useUltraWide: Boolean = false,
     val autoOpen: Boolean = true,
     val preferredPaymentApp: String? = null,
+    val openScannerDirectly: Boolean = false,
     val isSending: Boolean = false,
     val pendingConfirmation: UpiPaymentData? = null,
     val riskWarnings: List<RiskWarning> = emptyList(),
@@ -77,6 +78,11 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.value = _uiState.value.copy(preferredPaymentApp = appPkg)
             }
         }
+        viewModelScope.launch {
+            app.preferences.openScannerDirectlyFlow.collect { openDirectly ->
+                _uiState.value = _uiState.value.copy(openScannerDirectly = openDirectly)
+            }
+        }
     }
 
     fun onTorchToggle(enabled: Boolean) {
@@ -97,6 +103,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             app.preferences.setScannerAutoOpen(enabled)
             _uiState.value = _uiState.value.copy(autoOpen = enabled)
             val msg = if (enabled) "Auto-open enabled: Scans open directly in UPI app" else "Auto-open disabled: Confirmation required"
+            _events.emit(ScannerUiEvent.ShowToast(msg))
+        }
+    }
+
+    fun onToggleOpenScannerDirectly(enabled: Boolean) {
+        viewModelScope.launch {
+            app.preferences.setOpenScannerDirectly(enabled)
+            _uiState.value = _uiState.value.copy(openScannerDirectly = enabled)
+            val msg = if (enabled) "App scanner mode enabled: Opens scanner directly" else "App scanner mode disabled"
             _events.emit(ScannerUiEvent.ShowToast(msg))
         }
     }
