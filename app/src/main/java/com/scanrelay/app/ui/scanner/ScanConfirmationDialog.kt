@@ -173,11 +173,32 @@ fun ScanConfirmationDialog(
                     }
                 }
 
-                Text(
-                    text = "UPI ID copied to clipboard. If your bank declines external app intent transfers (P2P), open your UPI app directly and paste.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = "💡 Bank Decline Workarounds",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "• 📸 QR Saved to Gallery: Inside ${preferredAppName ?: "your UPI app"}, tap the Gallery icon in scanner to pay natively.\n• 📋 UPI ID Copied: Paste the ID in search/transfer.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
 
                 if (onOpenAppDirectly != null) {
                     OutlinedButton(

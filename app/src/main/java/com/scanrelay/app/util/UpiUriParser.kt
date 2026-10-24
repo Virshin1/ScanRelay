@@ -209,6 +209,13 @@ object UpiUriParser {
             normalized
         }
 
+        // Ensure mode=01 (Offline static QR) is present so UPI apps treat this as a scanned QR code
+        val finalRawUri = if (!queryParams.containsKey("mode")) {
+            if (safeRawUri.contains("?")) "$safeRawUri&mode=01" else "$safeRawUri?mode=01"
+        } else {
+            safeRawUri
+        }
+
         return ParseResult.Success(
             UpiPaymentData(
                 payeeVpa = pa,
@@ -217,7 +224,7 @@ object UpiUriParser {
                 currency = queryParams["cu"]?.trim() ?: "INR",
                 note = queryParams["tn"]?.trim()?.ifEmpty { null },
                 refId = queryParams["tr"]?.trim()?.ifEmpty { null },
-                rawUri = safeRawUri
+                rawUri = finalRawUri
             )
         )
     }
@@ -255,20 +262,14 @@ object UpiUriParser {
         if (!tr.isNullOrBlank()) {
             qb.append("&tr=").append(tr)
         }
-        if (!mode.isNullOrBlank()) {
-            qb.append("&mode=").append(mode)
-        }
+        val effectiveMode = if (!mode.isNullOrBlank()) mode else "01"
+        qb.append("&mode=").append(effectiveMode)
+
         if (!orgid.isNullOrBlank()) {
             qb.append("&orgid=").append(orgid)
-        }
-        if (!sign.isNullOrBlank()) {
-            qb.append("&sign=").append(sign)
-        }
-        if (!mid.isNullOrBlank()) {
-            qb.append("&mid=").append(mid)
-        }
-        if (!tid.isNullOrBlank()) {
-            qb.append("&tid=").append(tid)
+            if (!sign.isNullOrBlank()) qb.append("&sign=").append(sign)
+            if (!mid.isNullOrBlank()) qb.append("&mid=").append(mid)
+            if (!tid.isNullOrBlank()) qb.append("&tid=").append(tid)
         }
         if (!url.isNullOrBlank()) {
             qb.append("&url=").append(url)

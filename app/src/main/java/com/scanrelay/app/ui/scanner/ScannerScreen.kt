@@ -112,7 +112,7 @@ fun ScannerScreen(
                             val vpa = Uri.parse(event.uri).getQueryParameter("pa")
                             val vpaText = if (!vpa.isNullOrBlank()) " ($vpa)" else ""
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Opening UPI app... ID copied$vpaText")
+                                snackbarHostState.showSnackbar("Opening app... QR saved to Gallery & UPI ID copied$vpaText")
                             }
                         },
                         onError = { msg ->
@@ -366,6 +366,11 @@ fun ScannerScreen(
                     },
                     onOpenAppDirectly = uiState.preferredPaymentApp?.let { pkg ->
                         {
+                            com.scanrelay.app.util.QrGalleryHelper.saveQrToGallery(context, paymentData.rawUri)
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            val clip = ClipData.newPlainText("UPI ID", paymentData.payeeVpa)
+                            clipboard?.setPrimaryClip(clip)
+
                             val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
                             if (launchIntent != null) {
                                 launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -392,6 +397,10 @@ private fun launchUpiIntent(
     onError: (String) -> Unit
 ) {
     try {
+        // 1. Auto-save QR code to gallery for in-app "Scan from Gallery"
+        com.scanrelay.app.util.QrGalleryHelper.saveQrToGallery(context, rawUri)
+
+        // 2. Copy VPA to clipboard
         val parsedUri = Uri.parse(rawUri)
         val vpa = parsedUri.getQueryParameter("pa")
         if (!vpa.isNullOrBlank()) {
