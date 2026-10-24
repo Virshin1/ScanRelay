@@ -30,6 +30,7 @@
         <package android:name="com.navi.navihealth" />
         <package android:name="com.naviapp" />
         <package android:name="com.dreamplug.androidapp" />
+        <package android:name="money.super.payments" />
     </queries>
 
     <application

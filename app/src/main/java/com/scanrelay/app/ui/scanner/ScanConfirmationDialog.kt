@@ -42,6 +42,7 @@ fun ScanConfirmationDialog(
     isRelayConfigured: Boolean,
     preferredAppName: String? = null,
     onOpenDirectly: () -> Unit,
+    onOpenAppDirectly: (() -> Unit)? = null,
     onConfirmSend: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -177,6 +178,18 @@ fun ScanConfirmationDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (onOpenAppDirectly != null) {
+                    OutlinedButton(
+                        onClick = onOpenAppDirectly,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (preferredAppName.isNullOrBlank()) "Open UPI App Directly" else "Open $preferredAppName (Paste ID)")
+                    }
+                }
             }
         },
         confirmButton = {

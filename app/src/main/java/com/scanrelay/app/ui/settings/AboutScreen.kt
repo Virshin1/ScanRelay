@@ -47,9 +47,9 @@ fun AboutScreen(
         val context = androidx.compose.ui.platform.LocalContext.current
         val versionName = androidx.compose.runtime.remember {
             try {
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.9"
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.10"
             } catch (_: Exception) {
-                "1.0.9"
+                "1.0.10"
             }
         }
 

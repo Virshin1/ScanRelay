@@ -364,6 +364,18 @@ fun ScannerScreen(
                             }
                         )
                     },
+                    onOpenAppDirectly = uiState.preferredPaymentApp?.let { pkg ->
+                        {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
+                            if (launchIntent != null) {
+                                launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                context.startActivity(launchIntent)
+                                viewModel.dismissConfirmation()
+                            } else {
+                                android.widget.Toast.makeText(context, "App not installed on device", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
                     onConfirmSend = { viewModel.sendToMainPhone() },
                     onCancel = { viewModel.dismissConfirmation() }
                 )

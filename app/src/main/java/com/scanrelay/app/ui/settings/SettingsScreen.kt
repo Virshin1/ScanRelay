@@ -572,7 +572,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Choose which UPI app opens directly when a QR is scanned.\n\nTip: Google Pay & Paytm support personal QR (P2P) intent payments without bank decline.",
+                            text = "Choose which UPI app opens directly when a QR is scanned.\n\nTip: Merchant QRs (shops, stores, soundboxes) work with all apps. For personal savings QRs (P2P), the UPI ID is copied to your clipboard so you can paste and pay natively if intent checkout is declined.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

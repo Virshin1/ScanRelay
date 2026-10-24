@@ -15,6 +15,12 @@ data class PaymentAppOption(
                 description = "Opens default UPI app or system chooser"
             ),
             PaymentAppOption(
+                id = "SUPERMONEY",
+                displayName = "super.money",
+                packageName = "money.super.payments",
+                description = "Direct super.money UPI launch"
+            ),
+            PaymentAppOption(
                 id = "GPAY",
                 displayName = "Google Pay",
                 packageName = "com.google.android.apps.nbu.paisa.user",
