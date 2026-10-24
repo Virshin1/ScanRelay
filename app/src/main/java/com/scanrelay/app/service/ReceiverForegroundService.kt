@@ -175,12 +175,16 @@ class ReceiverForegroundService : Service() {
 
         // 3. Auto-open logic
         val autoOpenEnabled = app.preferences.autoOpenFlow.first()
+        val preferredPkg = app.preferences.preferredPaymentAppFlow.first()
         val canDrawOverlay = Settings.canDrawOverlays(this)
 
         if (autoOpenEnabled && canDrawOverlay) {
             try {
                 val launchIntent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentData.rawUri)).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    if (!preferredPkg.isNullOrBlank()) {
+                        setPackage(preferredPkg)
+                    }
                 }
                 startActivity(launchIntent)
             } catch (e: Exception) {

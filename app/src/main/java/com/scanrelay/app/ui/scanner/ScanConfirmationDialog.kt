@@ -40,6 +40,7 @@ fun ScanConfirmationDialog(
     paymentData: UpiPaymentData,
     warnings: List<RiskWarning>,
     isRelayConfigured: Boolean,
+    preferredAppName: String? = null,
     onOpenDirectly: () -> Unit,
     onConfirmSend: () -> Unit,
     onCancel: () -> Unit
@@ -172,7 +173,7 @@ fun ScanConfirmationDialog(
                 }
 
                 Text(
-                    text = "ScanRelay will only push this payment link to your main phone. It will not execute payments or touch bank accounts.",
+                    text = "UPI ID copied to clipboard. If your bank declines external app intent transfers (P2P), open your UPI app directly and paste.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -200,7 +201,7 @@ fun ScanConfirmationDialog(
                 ) {
                     Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Open UPI App")
+                    Text(if (preferredAppName.isNullOrBlank()) "Open UPI App" else "Pay with $preferredAppName")
                 }
             }
         },

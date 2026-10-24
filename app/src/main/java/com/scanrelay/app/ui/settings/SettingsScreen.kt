@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
@@ -70,9 +71,11 @@ fun SettingsScreen(
     val startOnBoot by app.preferences.startOnBootFlow.collectAsState(initial = false)
     val useUltraWide by app.preferences.useUltraWideCameraFlow.collectAsState(initial = false)
     val scannerAutoOpen by app.preferences.scannerAutoOpenFlow.collectAsState(initial = true)
+    val preferredPaymentApp by app.preferences.preferredPaymentAppFlow.collectAsState(initial = null)
 
     var showModeDialog by remember { mutableStateOf(false) }
     var showEditRelayDialog by remember { mutableStateOf(false) }
+    var showPreferredAppDialog by remember { mutableStateOf(false) }
 
     var isCheckingForUpdates by remember { mutableStateOf(false) }
     var availableUpdate by remember { mutableStateOf<com.scanrelay.app.data.model.UpdateInfo?>(null) }
@@ -356,6 +359,48 @@ fun SettingsScreen(
                 }
             }
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showPreferredAppDialog = true },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val currentAppOption = com.scanrelay.app.data.model.PaymentAppOption.findByPackage(preferredPaymentApp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Preferred UPI App",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = currentAppOption.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = currentAppOption.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "Select App",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
             // Section: App Updates
             Text(
                 text = "App Updates",
@@ -510,6 +555,79 @@ fun SettingsScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showModeDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Preferred payment app dialog
+        if (showPreferredAppDialog) {
+            AlertDialog(
+                onDismissRequest = { showPreferredAppDialog = false },
+                title = { Text("Select Preferred UPI App") },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Choose which UPI app opens directly when a QR is scanned.\n\nTip: Google Pay & Paytm support personal QR (P2P) intent payments without bank decline.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        com.scanrelay.app.data.model.PaymentAppOption.ALL.forEach { option ->
+                            val isSelected = option.packageName == preferredPaymentApp || (option.packageName == null && preferredPaymentApp.isNullOrBlank())
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            app.preferences.setPreferredPaymentApp(option.packageName)
+                                            showPreferredAppDialog = false
+                                        }
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = option.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = option.description,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Selected",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showPreferredAppDialog = false }) {
                         Text("Cancel")
                     }
                 }

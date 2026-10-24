@@ -28,6 +28,7 @@ data class ScannerUiState(
     val isTorchOn: Boolean = false,
     val useUltraWide: Boolean = false,
     val autoOpen: Boolean = true,
+    val preferredPaymentApp: String? = null,
     val isSending: Boolean = false,
     val pendingConfirmation: UpiPaymentData? = null,
     val riskWarnings: List<RiskWarning> = emptyList(),
@@ -71,6 +72,11 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.value = _uiState.value.copy(autoOpen = autoOpen)
             }
         }
+        viewModelScope.launch {
+            app.preferences.preferredPaymentAppFlow.collect { appPkg ->
+                _uiState.value = _uiState.value.copy(preferredPaymentApp = appPkg)
+            }
+        }
     }
 
     fun onTorchToggle(enabled: Boolean) {
@@ -92,6 +98,12 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             _uiState.value = _uiState.value.copy(autoOpen = enabled)
             val msg = if (enabled) "Auto-open enabled: Scans open directly in UPI app" else "Auto-open disabled: Confirmation required"
             _events.emit(ScannerUiEvent.ShowToast(msg))
+        }
+    }
+
+    fun onSelectPreferredPaymentApp(packageName: String?) {
+        viewModelScope.launch {
+            app.preferences.setPreferredPaymentApp(packageName)
         }
     }
 

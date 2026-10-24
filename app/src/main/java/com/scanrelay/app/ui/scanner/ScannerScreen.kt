@@ -1,6 +1,7 @@
 package com.scanrelay.app.ui.scanner
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -50,7 +51,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -74,6 +77,7 @@ fun ScannerScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -100,21 +104,23 @@ fun ScannerScreen(
                 is ScannerUiEvent.SendSuccess -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.SendError -> snackbarHostState.showSnackbar(event.message)
                 is ScannerUiEvent.AutoOpen -> {
-                    try {
-                        val parsedUri = Uri.parse(event.uri)
-                        val vpa = parsedUri.getQueryParameter("pa")
-                        if (!vpa.isNullOrBlank()) {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                            val clip = ClipData.newPlainText("UPI ID", vpa)
-                            clipboard?.setPrimaryClip(clip)
+                    launchUpiIntent(
+                        context = context,
+                        rawUri = event.uri,
+                        preferredPackage = uiState.preferredPaymentApp,
+                        onLaunched = {
+                            val vpa = Uri.parse(event.uri).getQueryParameter("pa")
+                            val vpaText = if (!vpa.isNullOrBlank()) " ($vpa)" else ""
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Opening UPI app... ID copied$vpaText")
+                            }
+                        },
+                        onError = { msg ->
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(msg)
+                            }
                         }
-
-                        val intent = Intent(Intent.ACTION_VIEW, parsedUri)
-                        val chooser = Intent.createChooser(intent, "Pay with")
-                        context.startActivity(chooser)
-                    } catch (e: Exception) {
-                        snackbarHostState.showSnackbar("No UPI app installed on this device")
-                    }
+                    )
                 }
             }
         }
@@ -133,7 +139,10 @@ fun ScannerScreen(
                             color = Color.White
                         )
                         Text(
-                            text = if (uiState.autoOpen) "Auto-Open Active" else if (uiState.relayConfig.isConfigured) "Relay Ready" else "Relay Unpaired",
+                            text = if (uiState.autoOpen) {
+                                val option = com.scanrelay.app.data.model.PaymentAppOption.findByPackage(uiState.preferredPaymentApp)
+                                if (option.packageName == null) "Auto-Open Active" else "Auto: ${option.displayName}"
+                            } else if (uiState.relayConfig.isConfigured) "Relay Ready" else "Relay Unpaired",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (uiState.autoOpen) Color(0xFF81C784) else if (uiState.relayConfig.isConfigured) Color(0xFF81C784) else Color(0xFFFFB74D)
                         )
@@ -338,32 +347,70 @@ fun ScannerScreen(
 
             // Confirmation Dialog on QR detection
             uiState.pendingConfirmation?.let { paymentData ->
+                val preferredOption = com.scanrelay.app.data.model.PaymentAppOption.findByPackage(uiState.preferredPaymentApp)
                 ScanConfirmationDialog(
                     paymentData = paymentData,
                     warnings = uiState.riskWarnings,
                     isRelayConfigured = uiState.relayConfig.isConfigured,
+                    preferredAppName = if (preferredOption.packageName != null) preferredOption.displayName else null,
                     onOpenDirectly = {
-                        try {
-                            val parsedUri = Uri.parse(paymentData.rawUri)
-                            val vpa = parsedUri.getQueryParameter("pa")
-                            if (!vpa.isNullOrBlank()) {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                val clip = ClipData.newPlainText("UPI ID", vpa)
-                                clipboard?.setPrimaryClip(clip)
+                        launchUpiIntent(
+                            context = context,
+                            rawUri = paymentData.rawUri,
+                            preferredPackage = uiState.preferredPaymentApp,
+                            onLaunched = { viewModel.dismissConfirmation() },
+                            onError = { msg ->
+                                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                             }
-
-                            val intent = Intent(Intent.ACTION_VIEW, parsedUri)
-                            val chooser = Intent.createChooser(intent, "Pay with")
-                            context.startActivity(chooser)
-                            viewModel.dismissConfirmation()
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, "No UPI app found on this device", android.widget.Toast.LENGTH_SHORT).show()
-                        }
+                        )
                     },
                     onConfirmSend = { viewModel.sendToMainPhone() },
                     onCancel = { viewModel.dismissConfirmation() }
                 )
             }
         }
+    }
+}
+
+private fun launchUpiIntent(
+    context: Context,
+    rawUri: String,
+    preferredPackage: String?,
+    onLaunched: () -> Unit,
+    onError: (String) -> Unit
+) {
+    try {
+        val parsedUri = Uri.parse(rawUri)
+        val vpa = parsedUri.getQueryParameter("pa")
+        if (!vpa.isNullOrBlank()) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val clip = ClipData.newPlainText("UPI ID", vpa)
+            clipboard?.setPrimaryClip(clip)
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW, parsedUri).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (!preferredPackage.isNullOrBlank()) {
+                setPackage(preferredPackage)
+            }
+        }
+
+        try {
+            context.startActivity(intent)
+            onLaunched()
+        } catch (e: ActivityNotFoundException) {
+            if (!preferredPackage.isNullOrBlank()) {
+                // If preferred package isn't installed, fallback to system generic intent
+                val fallbackIntent = Intent(Intent.ACTION_VIEW, parsedUri).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                context.startActivity(fallbackIntent)
+                onLaunched()
+            } else {
+                onError("No UPI app installed on this device")
+            }
+        }
+    } catch (e: Exception) {
+        onError("Could not open UPI app: ${e.message}")
     }
 }

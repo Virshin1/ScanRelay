@@ -28,6 +28,8 @@
         <package android:name="net.one97.paytm" />
         <package android:name="in.org.npci.upiapp" />
         <package android:name="com.navi.navihealth" />
+        <package android:name="com.naviapp" />
+        <package android:name="com.dreamplug.androidapp" />
     </queries>
 
     <application

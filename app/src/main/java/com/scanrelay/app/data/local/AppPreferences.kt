@@ -33,6 +33,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_LAST_SCAN_TIMESTAMP = longPreferencesKey("last_scan_timestamp")
         private val KEY_USE_ULTRA_WIDE_CAMERA = booleanPreferencesKey("use_ultra_wide_camera")
         private val KEY_SCANNER_AUTO_OPEN = booleanPreferencesKey("scanner_auto_open")
+        private val KEY_PREFERRED_PAYMENT_APP = stringPreferencesKey("preferred_payment_app")
 
         /**
          * Generates a cryptographically random, URL-safe topic string of at least 24 characters.
@@ -126,6 +127,22 @@ class AppPreferences(private val context: Context) {
     suspend fun setScannerAutoOpen(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[KEY_SCANNER_AUTO_OPEN] = enabled
+        }
+    }
+
+    val preferredPaymentAppFlow: Flow<String?> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences -> preferences[KEY_PREFERRED_PAYMENT_APP] }
+
+    suspend fun setPreferredPaymentApp(packageName: String?) {
+        dataStore.edit { preferences ->
+            if (packageName.isNullOrBlank()) {
+                preferences.remove(KEY_PREFERRED_PAYMENT_APP)
+            } else {
+                preferences[KEY_PREFERRED_PAYMENT_APP] = packageName
+            }
         }
     }
 
